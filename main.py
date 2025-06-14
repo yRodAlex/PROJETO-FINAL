@@ -95,7 +95,10 @@ Queremos que sua empresa sugira melhorias estratégicas baseadas em ciência de 
 - Alterar limite de crédito de acordo com risco do perfil  
 - Priorizar análise manual de clientes com score intermediário  
 - Automatizar bloqueio para dispositivos com histórico suspeito
+                
 """)
+    
+
 
 elif tab == "Documentação Técnica":
     st.header("\U0001F4C4 Documentação Técnica")
