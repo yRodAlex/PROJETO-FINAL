@@ -1,3 +1,5 @@
+import imblearn
+import sklearn
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -10,6 +12,9 @@ from imblearn.combine import SMOTEENN
 
 st.set_page_config(page_title='SecureTrust Project', layout='wide')
 st.title("SecureTrust")
+
+st.write(f"scikit-learn version: {sklearn.__version__}")
+st.write(f"imbalanced-learn version: {imblearn.__version__}")
 
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Secure-Trust"
