@@ -1,7 +1,7 @@
-streamlit==1.46.0
-pandas==2.3.0
-numpy==2.3.1
+streamlit==1.31.1
+pandas==2.2.2
+numpy==1.26.4
 scikit-learn==1.7.0
 imbalanced-learn==0.12.4
-xgboost==3.0.2
-matplotlib==3.10.3
+xgboost==2.0.3
+matplotlib==3.8.4
