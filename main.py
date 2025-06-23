@@ -115,153 +115,162 @@ elif tab == "Documentação Técnica":
         ---
 
         #### 📂 Estrutura do Bucket S3
-        **Bucket:** `projeto-times-bucket`
-                s3://projeto-times-bucket/
-                        ├── BRONZE/
-                        │ └── DADOS/ # Dados brutos (originais)
-                        ├── PRATA/ # Dados já tratados
-                        └── OURO/ # Dados finalizados para consumo BI ou modelo
-
-
----
-
-#### 🧪 Glue Job – Tratamento de Dados (Python Shell)
-
-**Tratativas Realizadas:**
-
-1. **Substituição de valores inválidos**  
-   - Colunas: `prev_address_months_count`, `current_address_months_count`, `device_distinct_emails_8w`, `session_length_in_minutes`  
-   - Ação: substituição de valores `-1` por `NaN`
-
-2. **Remoção de duplicatas**  
-   - Ação: `drop_duplicates()`
-
-3. **Remoção de coluna irrelevante**  
-   - Coluna: `intended_balcon_amount`  
-   - Ação: removida por inconsistência ou irrelevância
-
-4. **Criação de coluna auxiliar com nome do mês**  
-   - Nova coluna: `month_named`  
-   - Baseada no valor de `month` mapeado por dicionário
-
----
-
-#### 🗃️ Athena – Criação da Tabela de Consulta
-
-```sql
-CREATE DATABASE IF NOT EXISTS projeto_times_db;
-
-CREATE EXTERNAL TABLE IF NOT EXISTS projeto_times_db.base_tratada (
-  fraud_bool INT,
-  income DOUBLE,
-  name_email_similarity DOUBLE,
-  prev_address_months_count INT,
-  current_address_months_count INT,
-  customer_age INT,
-  days_since_request DOUBLE,
-  payment_type STRING,
-  zip_count_4w INT,
-  velocity_6h DOUBLE,
-  velocity_24h DOUBLE,
-  velocity_4w DOUBLE,
-  bank_branch_count_8w INT,
-  date_of_birth_distinct_emails_4w INT,
-  employment_status STRING,
-  credit_risk_score INT,
-  email_is_free INT,
-  housing_status STRING,
-  phone_home_valid INT,
-  phone_mobile_valid INT,
-  bank_months_count INT,
-  has_other_cards INT,
-  proposed_credit_limit DOUBLE,
-  foreign_request INT,
-  source STRING,
-  session_length_in_minutes DOUBLE,
-  device_os STRING,
-  keep_alive_session INT,
-  device_distinct_emails_8w INT,
-  device_fraud_count INT,
-  month INT,
-  month_named STRING
-)
-ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
-WITH SERDEPROPERTIES (
-  'serialization.format' = ',',
-  'field.delim' = ','
-)
-LOCATION 's3://projeto-times-bucket/PRATA/'
-TBLPROPERTIES ('has_encrypted_data'='false', 'skip.header.line.count'='1');
-
+        **Bucket:** `securetrust-bucket`
                 
-SELECT * FROM projeto_times_db.base_tratada LIMIT 10;
-                
+        ```
+        s3://securetrust-bucket/sistemadeorientacaodecredito/
+            ├── BRONZE/    # Dados brutos (originais)
+            ├── PRATA/     # Dados tratados
+            └── OURO/      # Dados finalizados para BI ou modelo
+        ```
 
-🧾 Observações Finais
-O arquivo CSV deve ter delimitador ',' e conter cabeçalho
-O Glue Job pode ser agendado para execução automática
-O uso de Crawler foi evitado para manter controle manual de schema e tipos            
+        ---
 
+        #### 🧪 Glue Job – Tratamento de Dados (Python Shell)
 
-import boto3
-import pandas as pd
-import numpy as np
-import io
+        **Tratativas Realizadas:**
 
-bucket = 'projeto-times-bucket'
-origem_prefix = 'BRONZE/DADOS/'
-destino_prefix = 'PRATA/'
+        1. **Substituição de valores inválidos**  
+           - Colunas: `prev_address_months_count`, `current_address_months_count`, `device_distinct_emails_8w`, `session_length_in_minutes`  
+           - Ação: substituição de valores `-1` por `NaN`
 
-colunas_com_menos_um = [
-    'prev_address_months_count',
-    'current_address_months_count',
-    'device_distinct_emails_8w',
-    'session_length_in_minutes'
-]
+        2. **Remoção de duplicatas**  
+           - Ação: `drop_duplicates()`
 
-mapa_meses = {
-    0: 'Janeiro', 1: 'Fevereiro', 2: 'Março', 3: 'Abril',
-    4: 'Maio', 5: 'Junho', 6: 'Julho', 7: 'Agosto',
-    8: 'Setembro', 9: 'Outubro', 10: 'Novembro', 11: 'Dezembro'
-}
+        3. **Remoção de coluna irrelevante**  
+           - Coluna: `intended_balcon_amount`  
+           - Ação: removida por inconsistência ou irrelevância
 
-s3 = boto3.client('s3')
+        4. **Criação de coluna auxiliar com nome do mês**  
+           - Nova coluna: `month_named`  
+           - Baseada no valor de `month` mapeado por dicionário
 
-try:
-    print("🔁 Listando arquivos na pasta BRONZE/DADOS/...")
-    response = s3.list_objects_v2(Bucket=bucket, Prefix=origem_prefix)
+        ---
 
-    if 'Contents' not in response:
-        print("Nenhum arquivo encontrado.")
-    else:
-        for obj in response['Contents']:
-            origem_key = obj['Key']
-            if origem_key.endswith('/'):
-                continue
-            nome_arquivo = origem_key.split('/')[-1]
-            destino_key = f"{destino_prefix}{nome_arquivo}"
+        #### 🗃️ Athena – Criação da Tabela de Consulta
 
-            print(f"📥 Processando {origem_key}...")
-            csv_obj = s3.get_object(Bucket=bucket, Key=origem_key)
-            df = pd.read_csv(csv_obj['Body'])
+        ```sql
+        CREATE DATABASE IF NOT EXISTS securetrust_db;
 
-            df[colunas_com_menos_um] = df[colunas_com_menos_um].replace(-1, np.nan)
-            df = df.drop_duplicates()
+        CREATE EXTERNAL TABLE IF NOT EXISTS securetrust_db.base_tratada (
+          fraud_bool INT,
+          income DOUBLE,
+          name_email_similarity DOUBLE,
+          prev_address_months_count INT,
+          current_address_months_count INT,
+          customer_age INT,
+          days_since_request DOUBLE,
+          payment_type STRING,
+          zip_count_4w INT,
+          velocity_6h DOUBLE,
+          velocity_24h DOUBLE,
+          velocity_4w DOUBLE,
+          bank_branch_count_8w INT,
+          date_of_birth_distinct_emails_4w INT,
+          employment_status STRING,
+          credit_risk_score INT,
+          email_is_free INT,
+          housing_status STRING,
+          phone_home_valid INT,
+          phone_mobile_valid INT,
+          bank_months_count INT,
+          has_other_cards INT,
+          proposed_credit_limit DOUBLE,
+          foreign_request INT,
+          source STRING,
+          session_length_in_minutes DOUBLE,
+          device_os STRING,
+          keep_alive_session INT,
+          device_distinct_emails_8w INT,
+          device_fraud_count INT,
+          month INT,
+          month_named STRING
+        )
+        ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+        WITH SERDEPROPERTIES (
+          'serialization.format' = ',',
+          'field.delim' = ','
+        )
+        LOCATION 's3://securetrust-bucket/sistemadeorientacaodecredito/PRATA/'
+        TBLPROPERTIES ('has_encrypted_data'='false', 'skip.header.line.count'='1');
 
-            if 'intended_balcon_amount' in df.columns:
-                df = df.drop(columns=['intended_balcon_amount'])
-            df['month_named'] = df['month'].map(mapa_meses)
+        SELECT * FROM securetrust_db.base_tratada LIMIT 10;
+        ```
 
-            csv_buffer = io.StringIO()
-            df.to_csv(csv_buffer, index=False)
-            s3.put_object(Bucket=bucket, Key=destino_key, Body=csv_buffer.getvalue())
+        ---
 
-            print(f"✅ Arquivo tratado e salvo em: {destino_key}")
+        #### 🧾 Observações Finais
+        - O arquivo CSV deve ter delimitador `,` e conter cabeçalho  
+        - O Glue Job pode ser agendado para execução automática  
+        - O uso de Crawler foi evitado para manter controle manual de schema e tipos  
 
-except Exception as e:
-    print("❌ Erro ao processar arquivos:", str(e))
-"""
+        ---
+
+        #### 🐍 Código Python para Tratamento dos Dados
+
+        ```python
+        import boto3
+        import pandas as pd
+        import numpy as np
+        import io
+
+        bucket = 'securetrust-bucket'
+        origem_prefix = 'sistemadeorientacaodecredito/BRONZE/'
+        destino_prefix = 'sistemadeorientacaodecredito/PRATA/'
+
+        colunas_com_menos_um = [
+            'prev_address_months_count',
+            'current_address_months_count',
+            'device_distinct_emails_8w',
+            'session_length_in_minutes'
+        ]
+
+        mapa_meses = {
+            0: 'Janeiro', 1: 'Fevereiro', 2: 'Março', 3: 'Abril',
+            4: 'Maio', 5: 'Junho', 6: 'Julho', 7: 'Agosto',
+            8: 'Setembro', 9: 'Outubro', 10: 'Novembro', 11: 'Dezembro'
+        }
+
+        s3 = boto3.client('s3')
+
+        try:
+            print("🔁 Listando arquivos na pasta BRONZE...")
+            response = s3.list_objects_v2(Bucket=bucket, Prefix=origem_prefix)
+
+            if 'Contents' not in response:
+                print("Nenhum arquivo encontrado.")
+            else:
+                for obj in response['Contents']:
+                    origem_key = obj['Key']
+                    if origem_key.endswith('/'):
+                        continue
+                    nome_arquivo = origem_key.split('/')[-1]
+                    destino_key = f"{destino_prefix}{nome_arquivo}"
+
+                    print(f"📥 Processando {origem_key}...")
+                    csv_obj = s3.get_object(Bucket=bucket, Key=origem_key)
+                    df = pd.read_csv(csv_obj['Body'])
+
+                    df[colunas_com_menos_um] = df[colunas_com_menos_um].replace(-1, np.nan)
+                    df = df.drop_duplicates()
+
+                    if 'intended_balcon_amount' in df.columns:
+                        df = df.drop(columns=['intended_balcon_amount'])
+
+                    df['month_named'] = df['month'].map(mapa_meses)
+
+                    csv_buffer = io.StringIO()
+                    df.to_csv(csv_buffer, index=False)
+                    s3.put_object(Bucket=bucket, Key=destino_key, Body=csv_buffer.getvalue())
+
+                    print(f"✅ Arquivo tratado e salvo em: {destino_key}")
+
+        except Exception as e:
+            print("❌ Erro ao processar arquivos:", str(e))
+        ```
+        """
     )
+
 
 
 elif tab == "Protótipo":
