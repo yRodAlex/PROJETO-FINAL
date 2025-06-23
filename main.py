@@ -18,9 +18,6 @@ st.title("SecureTrust")
 if "active_tab" not in st.session_state:
     st.session_state.active_tab = "Secure-Trust"
 
-st.write(f"scikit-learn version: {sklearn.__version__}")
-st.write(f"imbalanced-learn version: {imblearn.__version__}")
-
 tab = st.radio("Navegue pelas seções:", ["Secure-Trust", "Documentação Técnica", "Protótipo", "Sobre Nós"], horizontal=True)
 
 if st.session_state.active_tab != tab:
