@@ -8,9 +8,7 @@ from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, r
 from xgboost import XGBClassifier
 from imblearn.combine import SMOTEENN
 
-
 st.set_page_config(page_title='SecureTrust Project', layout='wide')
-
 st.title("SecureTrust")
 
 if "active_tab" not in st.session_state:
@@ -97,8 +95,6 @@ Queremos que sua empresa sugira melhorias estratégicas baseadas em ciência de 
 - Automatizar bloqueio para dispositivos com histórico suspeito
                 
 """)
-    
-
 
 elif tab == "Documentação Técnica":
     st.header("\U0001F4C4 Documentação Técnica")
@@ -263,35 +259,32 @@ except Exception as e:
 """
     )
 
+
 elif tab == "Protótipo":
-
     st.header("🤖 Protótipo de Predição de Fraudes")
-    st.markdown("Faça o upload do seu arquivo CSV abaixo para detectar possíveis fraudes em solicitações de abertura de contas bancárias.")
+    st.markdown("O arquivo `Base.csv` foi carregado automaticamente para detecção de fraudes. Verifique os dados abaixo:")
 
-    uploaded_file = st.file_uploader("📂 Escolha um arquivo CSV", type=['csv'])
-
-    if uploaded_file is not None:
+    try:
         chunk_size = 10**6
         chunks = []
-        try:
-            for chunk in pd.read_csv(uploaded_file, chunksize=chunk_size):
-                chunks.append(chunk)
-                if len(chunks) * chunk_size >= 2_000_000:
-                    st.warning("Arquivo muito grande! Apenas parte dos dados foi carregada.")
-                    break
-            data = pd.concat(chunks, ignore_index=True)
-        except Exception as e:
-            st.error(f"Erro ao ler o arquivo: {e}")
+        for chunk in pd.read_csv("data/Base.csv", chunksize=chunk_size):
+            chunks.append(chunk)
+            if len(chunks) * chunk_size >= 2_000_000:
+                st.warning("Arquivo muito grande! Apenas parte dos dados foi carregada.")
+                break
+        data = pd.concat(chunks, ignore_index=True)
+        st.success("✅ Arquivo 'Base.csv' carregado com sucesso!")
+        st.write("Pré-visualização dos dados:")
+        st.dataframe(data.head())
+    except Exception as e:
+        st.error(f"Erro ao carregar o arquivo Base.csv: {e}")
+        st.stop()
 
     st.info('Clique no botão abaixo para processar o arquivo')
     processar = st.button("Processar")
 
-    # Processamento e predição
-    if uploaded_file is not None and processar:
+    if processar:
         try:
-            st.write("Pré-visualização dos dados importados:")
-            st.dataframe(data.head())
-
             def codificar_dados(df):
                 df = df.copy()
                 for col in df.select_dtypes(include='object').columns:
@@ -329,23 +322,21 @@ elif tab == "Protótipo":
                 model.fit(X, y)
                 return model
 
-            # Execução
             X, y = preparar_dados(data)
             X_bal, y_bal = balancear_amostras(X, y)
             modelo = treinar_modelo(X_bal, y_bal)
 
-            # Probabilidades
             probs = modelo.predict_proba(X)[:, 1]
 
             st.subheader("⚙️ Thresholds para Avaliação Tabular")
             thr_input = st.text_input("Digite os thresholds desejados (ex: 0.3, 0.5, 0.7):", value="0.3, 0.5, 0.7")
+
             try:
                 thresholds = [float(t.strip()) for t in thr_input.split(",")]
             except:
-                st.error("⚠️ Formato inválido. Use números separados por vírgula, como: 0.3, 0.5, 0.7")
+                st.error("⚠️ Formato inválido. Use números separados por vírgula.")
                 thresholds = [0.5]
 
-            # Avaliação por threshold
             results = []
             for thr in thresholds:
                 y_pred_thr = (probs >= thr).astype(int)
@@ -366,7 +357,6 @@ elif tab == "Protótipo":
                     "F1": f1
                 })
 
-            # Tabela com resultados
             st.subheader("📊 Comparação de Métricas por Threshold")
             df_result = pd.DataFrame(results).set_index("threshold")
             st.dataframe(df_result.style.format({
@@ -376,16 +366,13 @@ elif tab == "Protótipo":
                 "F1": "{:.2%}"
             }))
 
-            # Melhor threshold baseado no maior F1
             melhor_resultado = max(results, key=lambda x: x["F1"])
             melhor_threshold = melhor_resultado["threshold"]
             melhor_f1 = melhor_resultado["F1"]
 
             st.success(f"🔍 Melhor threshold com base no F1-Score: **{melhor_threshold:.2f}** (F1 = {melhor_f1:.2%})")
 
-            # Gráfico de colunas: Falsos Positivos vs Falsos Negativos por Threshold
             st.subheader("📊 Falsos Positivos vs Falsos Negativos por Threshold")
-
             fps = [r["FP (True Positive)"] for r in results]
             fns = [r["FN (Fase Negative)"] for r in results]
             thresholds_plot = [f"{r['threshold']:.2f}" for r in results]
@@ -404,11 +391,8 @@ elif tab == "Protótipo":
             ax4.set_xticklabels(thresholds_plot)
             ax4.legend()
             ax4.grid(True, linestyle='--', alpha=0.4)
-
             st.pyplot(fig4)
 
-
-            # Gráfico Precision vs F1
             st.subheader("📈 Relação entre Precision e F1-Score por Threshold")
             precisions = [r["Precision"] for r in results]
             f1_scores = [r["F1"] for r in results]
@@ -424,24 +408,16 @@ elif tab == "Protótipo":
             ax3.grid(True, linestyle='--', alpha=0.5)
             st.pyplot(fig3)
 
-            # Aplicar melhor threshold na predição final
             y_pred_final = (probs >= melhor_threshold).astype(int)
             data['predicted_fraud'] = y_pred_final
             st.success(f"Predições com threshold **{melhor_threshold:.2f}** salvas na coluna `predicted_fraud`.")
 
-            # Download
             st.subheader("⬇️ Download dos Resultados")
             csv = data.to_csv(index=False).encode('utf-8')
-            st.download_button(
-                label="Baixar arquivo com predições",
-                data=csv,
-                file_name='dados_com_predicoes.csv',
-                mime='text/csv'
-            )
+            st.download_button("Baixar arquivo com predições", data=csv, file_name='dados_com_predicoes.csv', mime='text/csv')
 
         except Exception as e:
-            st.error(f"Ocorreu um erro durante o processamento: {e}")
-
+            st.error(f"Erro no processamento: {e}")
 
 elif tab == "Sobre Nós":
     st.header("👥 Sobre a Equipe")
