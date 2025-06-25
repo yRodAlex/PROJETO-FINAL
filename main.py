@@ -133,6 +133,73 @@ s3://bucket-securetrust/REF/trat/sistemadeoriginaçãodecredito.csv             
     - `device_distinct_emails_8w`
     - `session_length_in_minutes`
 
+**🐍 Código Python para Tratamento dos Dados**  
+                             
+```AWS GLUE   
+     
+import boto3
+import pandas as pd
+import numpy as np
+import io
+
+bucket = 'bucket-securetrust'
+origem_prefix = 'RAW/sistemadeoriginaçãodecredito/sistemadeoriginaçãodecredito/'
+destino_key = 'REF/trat/sistemadeoriginaçãodecredito.csv'
+
+colunas_com_menos_um = [
+    'prev_address_months_count',
+    'current_address_months_count',
+    'device_distinct_emails_8w',
+    'session_length_in_minutes'
+]
+
+mapa_meses = {
+    0: 'Janeiro', 1: 'Fevereiro', 2: 'Março', 3: 'Abril',
+    4: 'Maio', 5: 'Junho', 6: 'Julho', 7: 'Agosto',
+    8: 'Setembro', 9: 'Outubro', 10: 'Novembro', 11: 'Dezembro'
+}
+
+s3 = boto3.client('s3')
+
+try:
+    print("🔁 Listando arquivos na origem RAW...")
+    response = s3.list_objects_v2(Bucket=bucket, Prefix=origem_prefix)
+
+    if 'Contents' not in response:
+        print("Nenhum arquivo encontrado.")
+    else:
+        dfs = []
+        for obj in response['Contents']:
+            origem_key = obj['Key']
+            if origem_key.endswith('/'):
+                continue
+
+            print(f"📥 Processando {origem_key}...")
+            csv_obj = s3.get_object(Bucket=bucket, Key=origem_key)
+            df = pd.read_csv(csv_obj['Body'])
+            dfs.append(df)
+
+        if dfs:
+            df_total = pd.concat(dfs, ignore_index=True)
+            df_total[colunas_com_menos_um] = df_total[colunas_com_menos_um].replace(-1, np.nan)
+            df_total = df_total.drop_duplicates()
+
+            if 'intended_balcon_amount' in df_total.columns:
+                df_total = df_total.drop(columns=['intended_balcon_amount'])
+
+            df_total['month_named'] = df_total['month'].map(mapa_meses)
+
+            csv_buffer = io.StringIO()
+            df_total.to_csv(csv_buffer, index=False)
+            s3.put_object(Bucket=bucket, Key=destino_key, Body=csv_buffer.getvalue())
+
+            print(f"✅ Arquivo tratado consolidado salvo em: {destino_key}")
+
+except Exception as e:
+    print("❌ Erro ao processar arquivos:", str(e))
+
+```       
+
 - Remoção de duplicatas com `drop_duplicates()`  
 - Remoção da coluna `intended_balcon_amount`  
 - Criação da coluna `month_named` com o nome do mês baseado na coluna `month`
@@ -192,7 +259,6 @@ TBLPROPERTIES ('has_encrypted_data'='false', 'skip.header.line.count'='1');
 ```sql
 SELECT * FROM db_securetrust.sistemadeoriginacaodecredito LIMIT 10;
 ```
-
 ---
 
 ## 🧾 Observações Finais  
