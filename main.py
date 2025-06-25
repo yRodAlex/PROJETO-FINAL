@@ -98,176 +98,128 @@ Queremos que sua empresa sugira melhorias estratégicas baseadas em ciência de 
                 
 """)
 
+
 elif tab == "Documentação Técnica":
     st.header("\U0001F4C4 Documentação Técnica")
-    st.markdown(
-        """
-        ### Projeto de Engenharia de Dados – Ingestão, Tratamento e Consulta via S3, Glue e Athena
+    st.markdown("""
+**Projeto de Engenharia de Dados – Ingestão, Tratamento e Consulta via S3, Glue e Athena**
 
-        ---
+---
 
-        #### 🧭 Visão Geral
-        Este documento descreve a estrutura e implementação de um pipeline de dados utilizando os serviços da AWS: **S3**, **Glue (Python Shell)** e **Athena**.  
-        O objetivo é realizar a ingestão de arquivos CSV para o S3, executar tratativas via Glue Job e tornar os dados disponíveis para consulta via Athena.
+## 🧭 Visão Geral  
+Este documento descreve a estrutura e implementação de um pipeline de dados utilizando os serviços da AWS: **S3**, **Glue (Python Shell)** e **Athena**.  
+O objetivo é realizar a ingestão de arquivos CSV para o S3, executar tratativas via Glue Job e tornar os dados disponíveis para consulta via Athena.
 
-        ---
+---
 
-        #### 📂 Estrutura do Bucket S3
-        **Bucket:** `securetrust-bucket`
-                
-        ```
-        s3://securetrust-bucket/sistemadeorientacaodecredito/
-            ├── BRONZE/    # Dados brutos (originais)
-            ├── PRATA/     # Dados tratados
-            └── OURO/      # Dados finalizados para BI ou modelo
-        ```
+## 📂 Estrutura do Bucket S3  
+**Bucket:** `bucket-securetrust`
 
-        ---
+```
+s3://bucket-securetrust/RAW/sistemadeoriginaçãodecredito/sistemadeoriginaçãodecredito/   # Dados brutos (originais)
+s3://bucket-securetrust/RAW/hubspot/hubspot/                                              # Dados Hubspot
+s3://bucket-securetrust/RAW/apiverific/apiverific/                                        # Dados API Verific
+s3://bucket-securetrust/REF/trat/sistemadeoriginaçãodecredito.csv                        # Dados tratados
+```
 
-        #### 🧪 Glue Job – Tratamento de Dados (Python Shell)
+---
 
-        **Tratativas Realizadas:**
+## 🧪 Glue Job – Tratamento de Dados (Python Shell)  
 
-        1. **Substituição de valores inválidos**  
-           - Colunas: `prev_address_months_count`, `current_address_months_count`, `device_distinct_emails_8w`, `session_length_in_minutes`  
-           - Ação: substituição de valores `-1` por `NaN`
+**Tratativas Realizadas:**  
+- Substituição de valores -1 por NaN nas colunas:
+    - `prev_address_months_count`
+    - `current_address_months_count`
+    - `device_distinct_emails_8w`
+    - `session_length_in_minutes`
 
-        2. **Remoção de duplicatas**  
-           - Ação: `drop_duplicates()`
+- Remoção de duplicatas com `drop_duplicates()`  
+- Remoção da coluna `intended_balcon_amount`  
+- Criação da coluna `month_named` com o nome do mês baseado na coluna `month`
 
-        3. **Remoção de coluna irrelevante**  
-           - Coluna: `intended_balcon_amount`  
-           - Ação: removida por inconsistência ou irrelevância
+---
 
-        4. **Criação de coluna auxiliar com nome do mês**  
-           - Nova coluna: `month_named`  
-           - Baseada no valor de `month` mapeado por dicionário
+## 🗃️ Athena – Criação da Tabela de Consulta  
 
-        ---
+```sql
+CREATE DATABASE IF NOT EXISTS db_securetrust;
 
-        #### 🗃️ Athena – Criação da Tabela de Consulta
+CREATE EXTERNAL TABLE IF NOT EXISTS db_securetrust.sistemadeoriginacaodecredito (
+  fraud_bool INT,
+  income DOUBLE,
+  name_email_similarity DOUBLE,
+  prev_address_months_count INT,
+  current_address_months_count INT,
+  customer_age INT,
+  days_since_request DOUBLE,
+  payment_type STRING,
+  zip_count_4w INT,
+  velocity_6h DOUBLE,
+  velocity_24h DOUBLE,
+  velocity_4w DOUBLE,
+  bank_branch_count_8w INT,
+  date_of_birth_distinct_emails_4w INT,
+  employment_status STRING,
+  credit_risk_score INT,
+  email_is_free INT,
+  housing_status STRING,
+  phone_home_valid INT,
+  phone_mobile_valid INT,
+  bank_months_count INT,
+  has_other_cards INT,
+  proposed_credit_limit DOUBLE,
+  foreign_request INT,
+  source STRING,
+  session_length_in_minutes DOUBLE,
+  device_os STRING,
+  keep_alive_session INT,
+  device_distinct_emails_8w INT,
+  device_fraud_count INT,
+  month INT,
+  month_named STRING
+)
+ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
+WITH SERDEPROPERTIES (
+  'serialization.format' = ',',
+  'field.delim' = ','
+)
+LOCATION 's3://bucket-securetrust/REF/trat/'
+TBLPROPERTIES ('has_encrypted_data'='false', 'skip.header.line.count'='1');
+```
 
-        ```sql
-        CREATE DATABASE IF NOT EXISTS securetrust_db;
+**Exemplo de Consulta:**
 
-        CREATE EXTERNAL TABLE IF NOT EXISTS securetrust_db.base_tratada (
-          fraud_bool INT,
-          income DOUBLE,
-          name_email_similarity DOUBLE,
-          prev_address_months_count INT,
-          current_address_months_count INT,
-          customer_age INT,
-          days_since_request DOUBLE,
-          payment_type STRING,
-          zip_count_4w INT,
-          velocity_6h DOUBLE,
-          velocity_24h DOUBLE,
-          velocity_4w DOUBLE,
-          bank_branch_count_8w INT,
-          date_of_birth_distinct_emails_4w INT,
-          employment_status STRING,
-          credit_risk_score INT,
-          email_is_free INT,
-          housing_status STRING,
-          phone_home_valid INT,
-          phone_mobile_valid INT,
-          bank_months_count INT,
-          has_other_cards INT,
-          proposed_credit_limit DOUBLE,
-          foreign_request INT,
-          source STRING,
-          session_length_in_minutes DOUBLE,
-          device_os STRING,
-          keep_alive_session INT,
-          device_distinct_emails_8w INT,
-          device_fraud_count INT,
-          month INT,
-          month_named STRING
-        )
-        ROW FORMAT SERDE 'org.apache.hadoop.hive.serde2.lazy.LazySimpleSerDe'
-        WITH SERDEPROPERTIES (
-          'serialization.format' = ',',
-          'field.delim' = ','
-        )
-        LOCATION 's3://securetrust-bucket/sistemadeorientacaodecredito/PRATA/'
-        TBLPROPERTIES ('has_encrypted_data'='false', 'skip.header.line.count'='1');
+```sql
+SELECT * FROM db_securetrust.sistemadeoriginacaodecredito LIMIT 10;
+```
 
-        SELECT * FROM securetrust_db.base_tratada LIMIT 10;
-        ```
+---
 
-        ---
+## 🧾 Observações Finais  
+✔ O arquivo CSV deve ter delimitador `,` e conter cabeçalho  
+✔ O Glue Job pode ser agendado para execução automática  
+✔ O uso de Crawler foi evitado para manter controle manual de schema e tipos  
+✔ Nomes de tabelas, bancos e colunas devem evitar acentos e caracteres especiais  
+✔ No S3, o nome do arquivo pode conter acentos, mas no Athena sempre utilize nomes padronizados  
 
-        #### 🧾 Observações Finais
-        - O arquivo CSV deve ter delimitador `,` e conter cabeçalho  
-        - O Glue Job pode ser agendado para execução automática  
-        - O uso de Crawler foi evitado para manter controle manual de schema e tipos  
+---
 
-        ---
+## 🚀 Resumo Final  
 
-        #### 🐍 Código Python para Tratamento dos Dados
+**Dados Brutos:**  
+`s3://bucket-securetrust/RAW/sistemadeoriginaçãodecredito/sistemadeoriginaçãodecredito/`  
+`s3://bucket-securetrust/RAW/hubspot/hubspot/`  
+`s3://bucket-securetrust/RAW/apiverific/apiverific/`  
 
-        ```python
-        import boto3
-        import pandas as pd
-        import numpy as np
-        import io
+**Dados Tratados Consolidado:**  
+`s3://bucket-securetrust/REF/trat/sistemadeoriginaçãodecredito.csv`
 
-        bucket = 'securetrust-bucket'
-        origem_prefix = 'sistemadeorientacaodecredito/BRONZE/'
-        destino_prefix = 'sistemadeorientacaodecredito/PRATA/'
+**Banco de Dados Athena:**  
+`db_securetrust`
 
-        colunas_com_menos_um = [
-            'prev_address_months_count',
-            'current_address_months_count',
-            'device_distinct_emails_8w',
-            'session_length_in_minutes'
-        ]
-
-        mapa_meses = {
-            0: 'Janeiro', 1: 'Fevereiro', 2: 'Março', 3: 'Abril',
-            4: 'Maio', 5: 'Junho', 6: 'Julho', 7: 'Agosto',
-            8: 'Setembro', 9: 'Outubro', 10: 'Novembro', 11: 'Dezembro'
-        }
-
-        s3 = boto3.client('s3')
-
-        try:
-            print("🔁 Listando arquivos na pasta BRONZE...")
-            response = s3.list_objects_v2(Bucket=bucket, Prefix=origem_prefix)
-
-            if 'Contents' not in response:
-                print("Nenhum arquivo encontrado.")
-            else:
-                for obj in response['Contents']:
-                    origem_key = obj['Key']
-                    if origem_key.endswith('/'):
-                        continue
-                    nome_arquivo = origem_key.split('/')[-1]
-                    destino_key = f"{destino_prefix}{nome_arquivo}"
-
-                    print(f"📥 Processando {origem_key}...")
-                    csv_obj = s3.get_object(Bucket=bucket, Key=origem_key)
-                    df = pd.read_csv(csv_obj['Body'])
-
-                    df[colunas_com_menos_um] = df[colunas_com_menos_um].replace(-1, np.nan)
-                    df = df.drop_duplicates()
-
-                    if 'intended_balcon_amount' in df.columns:
-                        df = df.drop(columns=['intended_balcon_amount'])
-
-                    df['month_named'] = df['month'].map(mapa_meses)
-
-                    csv_buffer = io.StringIO()
-                    df.to_csv(csv_buffer, index=False)
-                    s3.put_object(Bucket=bucket, Key=destino_key, Body=csv_buffer.getvalue())
-
-                    print(f"✅ Arquivo tratado e salvo em: {destino_key}")
-
-        except Exception as e:
-            print("❌ Erro ao processar arquivos:", str(e))
-        ```
-        """
-    )
+**Tabela Athena:**  
+`sistemadeoriginacaodecredito`
+""")
 
 
 
